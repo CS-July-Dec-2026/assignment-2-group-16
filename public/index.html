@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>File Viewer</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      background: #1a1a2e;
+      color: #e0e0e0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 40px 20px;
+    }
+
+    h1 {
+      font-size: 2rem;
+      margin-bottom: 30px;
+      color: #e94560;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 800px;
+    }
+
+    .file-list {
+      background: #16213e;
+      border-radius: 10px;
+      padding: 20px;
+      margin-bottom: 30px;
+    }
+
+    .file-list h2 {
+      font-size: 1.1rem;
+      margin-bottom: 15px;
+      color: #e94560;
+    }
+
+    .file-item {
+      background: #0f3460;
+      padding: 12px 18px;
+      margin-bottom: 8px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .file-item:hover {
+      background: #533483;
+    }
+
+    .file-item span {
+      font-size: 0.95rem;
+    }
+
+    .manual-input {
+      background: #16213e;
+      border-radius: 10px;
+      padding: 20px;
+      margin-bottom: 30px;
+    }
+
+    .manual-input h2 {
+      font-size: 1.1rem;
+      margin-bottom: 15px;
+      color: #e94560;
+    }
+
+    .input-row {
+      display: flex;
+      gap: 10px;
+    }
+
+    .input-row input {
+      flex: 1;
+      padding: 10px 14px;
+      border: 1px solid #0f3460;
+      border-radius: 6px;
+      background: #0f3460;
+      color: #e0e0e0;
+      font-size: 0.95rem;
+      outline: none;
+    }
+
+    .input-row input:focus {
+      border-color: #e94560;
+    }
+
+    .input-row button {
+      padding: 10px 20px;
+      background: #e94560;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.95rem;
+      transition: background 0.2s;
+    }
+
+    .input-row button:hover {
+      background: #c81e45;
+    }
+
+    .viewer {
+      background: #16213e;
+      border-radius: 10px;
+      padding: 20px;
+      display: none;
+    }
+
+    .viewer h2 {
+      font-size: 1.1rem;
+      margin-bottom: 5px;
+      color: #e94560;
+    }
+
+    .viewer .filename {
+      font-size: 0.85rem;
+      color: #888;
+      margin-bottom: 15px;
+    }
+
+    .viewer pre {
+      background: #0f3460;
+      padding: 16px;
+      border-radius: 6px;
+      overflow-x: auto;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+      font-size: 0.9rem;
+      line-height: 1.5;
+      color: #e0e0e0;
+    }
+
+    .error {
+      color: #ff6b6b;
+      font-style: italic;
+    }
+  </style>
+</head>
+<body>
+  <h1>📁 File Viewer</h1>
+
+  <div class="container">
+    <div class="file-list">
+      <h2>Available Files</h2>
+      <div id="fileList">Loading...</div>
+    </div>
+
+    <div class="manual-input">
+      <h2>Open File by Name</h2>
+      <div class="input-row">
+        <input type="text" id="filenameInput" placeholder="Enter filename..." />
+        <button onclick="loadFile()">View</button>
+      </div>
+    </div>
+
+    <div class="viewer" id="viewer">
+      <h2>File Contents</h2>
+      <div class="filename" id="viewerFilename"></div>
+      <pre id="viewerContent"></pre>
+    </div>
+  </div>
+
+  <script>
+    // Load file list on page load
+    async function loadFileList() {
+      try {
+        const res = await fetch("/api/files");
+        const data = await res.json();
+        const listEl = document.getElementById("fileList");
+        listEl.innerHTML = "";
+
+        data.files.forEach((file) => {
+          const item = document.createElement("div");
+          item.className = "file-item";
+          item.innerHTML = `<span>📄 ${file}</span>`;
+          item.onclick = () => {
+            document.getElementById("filenameInput").value = file;
+            loadFile();
+          };
+          listEl.appendChild(item);
+        });
+      } catch (err) {
+        document.getElementById("fileList").innerHTML =
+          '<span class="error">Failed to load file list</span>';
+      }
+    }
+
+    // Load a file's contents
+    async function loadFile() {
+      const filename = document.getElementById("filenameInput").value.trim();
+      if (!filename) return;
+
+      const viewer = document.getElementById("viewer");
+      const content = document.getElementById("viewerContent");
+      const fnDisplay = document.getElementById("viewerFilename");
+
+      viewer.style.display = "block";
+      content.textContent = "Loading...";
+      fnDisplay.textContent = "";
+
+      try {
+        const res = await fetch(
+          `/api/view?filename=${encodeURIComponent(filename)}`
+        );
+        const data = await res.json();
+
+        if (data.error) {
+          content.innerHTML = `<span class="error">${data.error}</span>`;
+        } else {
+          fnDisplay.textContent = `Viewing: ${data.filename}`;
+          content.textContent = data.content;
+        }
+      } catch (err) {
+        content.innerHTML =
+          '<span class="error">Failed to load file</span>';
+      }
+    }
+
+    // Enter key support
+    document.addEventListener("DOMContentLoaded", () => {
+      loadFileList();
+      document
+        .getElementById("filenameInput")
+        .addEventListener("keydown", (e) => {
+          if (e.key === "Enter") loadFile();
+        });
+    });
+  </script>
+</body>
+</html>
